@@ -111,9 +111,10 @@ class LibnameConan(ConanFile):
         # Rename to "source_subfolder" is a convention to simplify later steps
         os.rename(extracted_dir, self._source_subfolder)
 
-        # tools.replace_in_file(os.path.join(self._source_subfolder, "src", "Magnum", "Platform", "CMakeLists.txt"),
-        #     "target_link_libraries(MagnumGlfwApplication PUBLIC Magnum GLFW::GLFW)",
-        #     "target_link_libraries(MagnumGlfwApplication PUBLIC Magnum CONAN_PKG::glfw)")
+        if self.settings.os == "Macos":
+            tools.replace_in_file(os.path.join(self._source_subfolder, "src", "python", "magnum", "CMakeLists.txt"),
+                "list(APPEND magnum_LIBS Magnum::GlfwApplication)",
+                """list(APPEND magnum_LIBS Magnum::GlfwApplication "-framework Cocoa -framework OpenGL")""")
 
     def _configure_cmake(self):
         cmake = CMake(self)
@@ -135,6 +136,13 @@ class LibnameConan(ConanFile):
         add_cmake_option("BUILD_STATIC_PIC", not self.options.shared and self.options.get_safe("fPIC"))
         # add_cmake_option("IMGUI_DIR", os.path.join(self.deps_cpp_info["imgui"].rootpath, 'include'))
 
+        if self.options.with_python:
+            self.output.info("python executable: %s (%s)" % (self.deps_user_info["python_dev_config"].python_exec,
+                                                             self.deps_user_info["python_dev_config"].python_version))
+            cmake.definitions['PYTHON_EXECUTABLE'] = self.deps_user_info["python_dev_config"].python_exec
+            cmake.definitions['PYTHON_VERSION_STRING'] = self.deps_user_info["python_dev_config"].python_version
+            if self.settings.os == "Macos":
+                cmake.definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
         cmake.configure(build_folder=self._build_subfolder)
 
         return cmake
@@ -147,8 +155,11 @@ class LibnameConan(ConanFile):
         self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
         cmake = self._configure_cmake()
         cmake.install()
-        self.copy('*.py*')
-        self.copy("*.so")
+        if self.options.with_python:
+            self.copy('*.py*', dst=os.path.join('lib', 'python'), src=os.path.join(self._source_subfolder, 'src', 'python'), keep_path=True)
+            self.copy('*.so', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'))
+            self.copy('*.pyd', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'))
 
     def package_info(self):
-        self.env_info.PYTHONPATH.append(self.package_folder)
+        if self.options.with_python:
+            self.env_info.PYTHONPATH.append(os.path.join(self.package_folder,'lib', 'python'))
