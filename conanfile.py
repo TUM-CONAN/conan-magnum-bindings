@@ -22,7 +22,7 @@ def sort_libs(correct_order, libs, lib_suffix='', reverse_result=False):
 
 class LibnameConan(ConanFile):
     name = "magnum-bindings"
-    version = "2019.10"
+    version = "2020.06"
     description =   "magnum-bindings — Lightweight and modular C++11/C++14 \
                     graphics middleware for games and data visualization"
     # topics can get used for searches, GitHub topics, Bintray tags etc. Add here keywords about the library
@@ -47,6 +47,7 @@ class LibnameConan(ConanFile):
         "shared": False, 
         "fPIC": True,
         "with_python": True,
+        "magnum:with_sdl2application": True,
     }
 
     # Custom attributes for Bincrafters recipe conventions
@@ -55,7 +56,7 @@ class LibnameConan(ConanFile):
 
     # we could make this more modular byu adding options ..
     requires = (
-        "magnum/2019.10@camposs/stable",
+        "magnum/2020.06@camposs/stable",
         "nodejs_installer/[>=10.15.0]@bincrafters/stable",
     )
 
@@ -83,6 +84,14 @@ class LibnameConan(ConanFile):
         # Install required dependent packages stuff on linux
         pass
 
+    def build_requirements(self):
+        self.build_requires("generators/1.0.0@camposs/stable")
+        if self.options.with_python:
+            self.requires("python/3.8.11@camposs/stable")
+            self.build_requires("python-setuptools/[>=41.2.0]@camposs/stable")
+            self.build_requires("python-pip/[>=19.2.3]@camposs/stable")
+
+
     def config_options(self):
         if self.settings.os == 'Windows':
             del self.options.fPIC
@@ -97,10 +106,12 @@ class LibnameConan(ConanFile):
         # if self.options.with_assimpimporter:
         #     self.options['magnum'].add_option('with_anyimageimporter', True)
 
+        # for now we build with custom python
+        self.options['pybind11'].add_option('with_system_python', False)
+
     def requirements(self):
         if self.options.with_python:
-            self.requires("python_dev_config/[>=0.5]@camposs/stable")
-            self.requires("pybind11/[>=2.3.0]@camposs/stable")
+            self.requires("pybind11/[2.5.0]@camposs/stable")
 
 
     def source(self):
@@ -137,10 +148,14 @@ class LibnameConan(ConanFile):
         # add_cmake_option("IMGUI_DIR", os.path.join(self.deps_cpp_info["imgui"].rootpath, 'include'))
 
         if self.options.with_python:
-            self.output.info("python executable: %s (%s)" % (self.deps_user_info["python_dev_config"].python_exec,
-                                                             self.deps_user_info["python_dev_config"].python_version))
-            cmake.definitions['PYTHON_EXECUTABLE'] = self.deps_user_info["python_dev_config"].python_exec
-            cmake.definitions['PYTHON_VERSION_STRING'] = self.deps_user_info["python_dev_config"].python_version
+            
+            self.output.info("python executable from environ: %s (%s)" % (os.environ.get("PYTHON"),
+                                                             os.environ.get("PYTHON_VERSION")))
+
+            self.output.info("python executable: %s (%s)" % (self.deps_env_info["python"].PYTHON,
+                                                             self.deps_env_info["python"].PYTHON_VERSION))
+            cmake.definitions['PYTHON_EXECUTABLE'] = self.deps_env_info["python"].PYTHON
+            cmake.definitions['PYTHON_VERSION_STRING'] = self.deps_env_info["python"].PYTHON_VERSION
             if self.settings.os == "Macos":
                 cmake.definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
         cmake.configure(build_folder=self._build_subfolder)

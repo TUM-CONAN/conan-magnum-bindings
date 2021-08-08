@@ -1,10 +1,9 @@
 from conans import ConanFile, tools
+import os
 
 class MagnumTestConan(ConanFile):
-    requires = "magnum-bindings/2019.10@camposs/stable"
+    requires = "magnum-bindings/2020.06@camposs/stable"
 
     def test(self):
       # self.conanfile_directory
-      with tools.pythonpath(self):
-          from magnum import Vector2
-          print("A Magnum::Vector2: %s" % Vector2(1.0, 2.0))
+      self.run('{0} -c "from magnum import Vector2; print(Vector2(1.0, 2.0))"'.format(os.environ.get("PYTHON")))
