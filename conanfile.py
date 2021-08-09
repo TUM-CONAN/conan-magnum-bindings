@@ -86,11 +86,7 @@ class LibnameConan(ConanFile):
 
     def build_requirements(self):
         self.build_requires("generators/1.0.0@camposs/stable")
-        if self.options.with_python:
-            self.requires("python/3.8.11@camposs/stable")
-            self.build_requires("python-setuptools/[>=41.2.0]@camposs/stable")
-            self.build_requires("python-pip/[>=19.2.3]@camposs/stable")
-
+    
 
     def config_options(self):
         if self.settings.os == 'Windows':
@@ -106,11 +102,10 @@ class LibnameConan(ConanFile):
         # if self.options.with_assimpimporter:
         #     self.options['magnum'].add_option('with_anyimageimporter', True)
 
-        # for now we build with custom python
-        self.options['pybind11'].add_option('with_system_python', False)
 
     def requirements(self):
         if self.options.with_python:
+            self.requires("python_dev_config/[>=0.6]@camposs/stable")
             self.requires("pybind11/[2.7.1]@camposs/stable")
 
 
@@ -149,13 +144,10 @@ class LibnameConan(ConanFile):
 
         if self.options.with_python:
             
-            self.output.info("python executable from environ: %s (%s)" % (os.environ.get("PYTHON"),
+            self.output.info("python executable: %s (%s)" % (os.environ.get("PYTHON"),
                                                              os.environ.get("PYTHON_VERSION")))
-
-            self.output.info("python executable: %s (%s)" % (self.deps_env_info["python"].PYTHON,
-                                                             self.deps_env_info["python"].PYTHON_VERSION))
-            cmake.definitions['PYTHON_EXECUTABLE'] = self.deps_env_info["python"].PYTHON
-            cmake.definitions['PYTHON_VERSION_STRING'] = self.deps_env_info["python"].PYTHON_VERSION
+            cmake.definitions['PYTHON_EXECUTABLE'] = os.environ.get("PYTHON")
+            cmake.definitions['PYTHON_VERSION_STRING'] = os.environ.get("PYTHON_VERSION")
             if self.settings.os == "Macos":
                 cmake.definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
         cmake.configure(build_folder=self._build_subfolder)
