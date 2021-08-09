@@ -1,0 +1,599 @@
+diff --git a/src/python/corrade/bootstrap.h b/src/python/corrade/bootstrap.h
+index 3c39c74..2b8eb6a 100644
+--- a/src/python/corrade/bootstrap.h
++++ b/src/python/corrade/bootstrap.h
+@@ -25,7 +25,20 @@
+     DEALINGS IN THE SOFTWARE.
+ */
+ 
+-namespace pybind11 { class module; }
++#include <pybind11/detail/common.h> /* for PYBIND11_VERSION_* */
++
++namespace pybind11 {
++    /* pybind11 2.6 changes py::module to py::module_ to be compatible with C++
++       modules. In order to be forward-compatible, we use module_ everywhere
++       and define it as an alias to module on < 2.6 */
++    #if PYBIND11_VERSION_MAJOR*100 + PYBIND11_VERSION_MINOR >= 206
++    class module_;
++    #else
++    class module;
++    typedef module module_;
++    #endif
++}
++
+ namespace Corrade {}
+ 
+ namespace corrade {
+@@ -33,8 +46,8 @@ namespace corrade {
+ using namespace Corrade;
+ namespace py = pybind11;
+ 
+-void containers(py::module& m);
+-void pluginmanager(py::module& m);
++void containers(py::module_& m);
++void pluginmanager(py::module_& m);
+ 
+ }
+ 
+diff --git a/src/python/corrade/containers.cpp b/src/python/corrade/containers.cpp
+index 09cdfde..73bce47 100644
+--- a/src/python/corrade/containers.cpp
++++ b/src/python/corrade/containers.cpp
+@@ -631,7 +631,7 @@ template<class T> void mutableStridedArrayView4D(py::class_<Containers::StridedA
+ 
+ }
+ 
+-void containers(py::module& m) {
++void containers(py::module_& m) {
+     m.doc() = "Container implementations";
+ 
+     py::class_<Containers::ArrayView<const char>, Containers::PyArrayViewHolder<Containers::ArrayView<const char>>> arrayView_{m,
+diff --git a/src/python/corrade/corrade.cpp b/src/python/corrade/corrade.cpp
+index f4a080a..ffc3bd1 100644
+--- a/src/python/corrade/corrade.cpp
++++ b/src/python/corrade/corrade.cpp
+@@ -118,11 +118,11 @@ PYBIND11_MODULE(_corrade, m) {
+ 
+        These need to be defined in the order they depend on. */
+     #ifdef CORRADE_BUILD_STATIC
+-    py::module containers = m.def_submodule("containers");
++    py::module_ containers = m.def_submodule("containers");
+     corrade::containers(containers);
+ 
+     #ifdef Corrade_PluginManager_FOUND
+-    py::module pluginmanager = m.def_submodule("pluginmanager");
++    py::module_ pluginmanager = m.def_submodule("pluginmanager");
+     corrade::pluginmanager(pluginmanager);
+     #endif
+     #endif
+diff --git a/src/python/corrade/pluginmanager.cpp b/src/python/corrade/pluginmanager.cpp
+index 898f39a..4faab1d 100644
+--- a/src/python/corrade/pluginmanager.cpp
++++ b/src/python/corrade/pluginmanager.cpp
+@@ -34,7 +34,7 @@
+ 
+ namespace corrade {
+ 
+-void pluginmanager(py::module& m) {
++void pluginmanager(py::module_& m) {
+     m.doc() = "Plugin management";
+ 
+     py::enum_<PluginManager::LoadState> loadState{m, "LoadState", "Plugin load state"};
+diff --git a/src/python/magnum/bootstrap.h b/src/python/magnum/bootstrap.h
+index cd54ae9..d8d916b 100644
+--- a/src/python/magnum/bootstrap.h
++++ b/src/python/magnum/bootstrap.h
+@@ -26,9 +26,21 @@
+ */
+ 
+ #include <Python.h>
++#include <pybind11/detail/common.h> /* for PYBIND11_VERSION_* */
+ #include <Magnum/Magnum.h>
+ 
+-namespace pybind11 { class module; }
++namespace pybind11 {
++    /* pybind11 2.6 changes py::module to py::module_ to be compatible with C++
++       modules. In order to be forward-compatible, we use module_ everywhere
++       and define it as an alias to module on < 2.6 */
++    #if PYBIND11_VERSION_MAJOR*100 + PYBIND11_VERSION_MINOR >= 206
++    class module_;
++    #else
++    class module;
++    typedef module module_;
++    #endif
++}
++
+ namespace Magnum {}
+ 
+ namespace magnum {
+@@ -50,26 +62,26 @@ template<class T> struct PyDimensionTraits<3, T> {
+     static VectorType from(const Math::Vector<3, T>& vec) { return vec; }
+ };
+ 
+-void math(py::module& root, py::module& m);
+-void mathVectorFloat(py::module& root, py::module& m);
+-void mathVectorIntegral(py::module& root, py::module& m);
+-void mathMatrixFloat(py::module& root, PyTypeObject* metaclass);
+-void mathMatrixDouble(py::module& root, PyTypeObject* metaclass);
+-void mathRange(py::module& root, py::module& m);
++void math(py::module_& root, py::module_& m);
++void mathVectorFloat(py::module_& root, py::module_& m);
++void mathVectorIntegral(py::module_& root, py::module_& m);
++void mathMatrixFloat(py::module_& root, PyTypeObject* metaclass);
++void mathMatrixDouble(py::module_& root, PyTypeObject* metaclass);
++void mathRange(py::module_& root, py::module_& m);
+ 
+-void gl(py::module& m);
+-void meshtools(py::module& m);
+-void primitives(py::module& m);
+-void scenegraph(py::module& m);
+-void shaders(py::module& m);
+-void trade(py::module& m);
++void gl(py::module_& m);
++void meshtools(py::module_& m);
++void primitives(py::module_& m);
++void scenegraph(py::module_& m);
++void shaders(py::module_& m);
++void trade(py::module_& m);
+ 
+ namespace platform {
+-    void glfw(py::module& m);
+-    void sdl2(py::module& m);
++    void glfw(py::module_& m);
++    void sdl2(py::module_& m);
+ 
+-    void egl(py::module& m);
+-    void glx(py::module& m);
++    void egl(py::module_& m);
++    void glx(py::module_& m);
+ }
+ 
+ }
+diff --git a/src/python/magnum/gl.cpp b/src/python/magnum/gl.cpp
+index 06e3a82..4f6ceb1 100644
+--- a/src/python/magnum/gl.cpp
++++ b/src/python/magnum/gl.cpp
+@@ -238,7 +238,7 @@ template<UnsignedInt dimensions> void texture(py::class_<GL::Texture<dimensions>
+ 
+ }
+ 
+-void gl(py::module& m) {
++void gl(py::module_& m) {
+     /*
+         Missing APIs:
+ 
+diff --git a/src/python/magnum/magnum.cpp b/src/python/magnum/magnum.cpp
+index f743082..37fb498 100644
+--- a/src/python/magnum/magnum.cpp
++++ b/src/python/magnum/magnum.cpp
+@@ -153,7 +153,7 @@ template<class T> void imageViewFromMutable(py::class_<T, PyImageViewHolder<T>>&
+         }), "Construct from a mutable view");
+ }
+ 
+-void magnum(py::module& m) {
++void magnum(py::module_& m) {
+     m.attr("BUILD_STATIC") =
+         #ifdef MAGNUM_BUILD_STATIC
+         true
+@@ -335,9 +335,9 @@ PYBIND11_MODULE(_magnum, m) {
+     m.doc() = "Root Magnum module";
+ 
+     /* We need ArrayView for images */
+-    py::module::import("corrade.containers");
++    py::module_::import("corrade.containers");
+ 
+-    py::module math = m.def_submodule("math");
++    py::module_ math = m.def_submodule("math");
+     magnum::math(m, math);
+ 
+     /* These need stuff from math, so need to be called after */
+@@ -350,59 +350,59 @@ PYBIND11_MODULE(_magnum, m) {
+        These need to be defined in the order they depend on. */
+     #ifdef MAGNUM_BUILD_STATIC
+     #ifdef Magnum_GL_FOUND
+-    py::module gl = m.def_submodule("gl");
++    py::module_ gl = m.def_submodule("gl");
+     magnum::gl(gl);
+     #endif
+ 
+     #ifdef Magnum_SceneGraph_FOUND
+-    py::module scenegraph = m.def_submodule("scenegraph");
++    py::module_ scenegraph = m.def_submodule("scenegraph");
+     magnum::scenegraph(scenegraph);
+     #endif
+ 
+     #ifdef Magnum_Trade_FOUND
+-    py::module trade = m.def_submodule("trade");
++    py::module_ trade = m.def_submodule("trade");
+     magnum::trade(trade);
+     #endif
+ 
+     #ifdef Magnum_MeshTools_FOUND
+     /* Depends on trade and gl */
+-    py::module meshtools = m.def_submodule("meshtools");
++    py::module_ meshtools = m.def_submodule("meshtools");
+     magnum::meshtools(meshtools);
+     #endif
+ 
+     #ifdef Magnum_Primitives_FOUND
+     /* Depends on trade */
+-    py::module primitives = m.def_submodule("primitives");
++    py::module_ primitives = m.def_submodule("primitives");
+     magnum::primitives(primitives);
+     #endif
+ 
+     #ifdef Magnum_Shaders_FOUND
+     /* Depends on gl */
+-    py::module shaders = m.def_submodule("shaders");
++    py::module_ shaders = m.def_submodule("shaders");
+     magnum::shaders(shaders);
+     #endif
+ 
+     /* Keep the doc in sync with platform/__init__.py */
+-    py::module platform = m.def_submodule("platform");
++    py::module_ platform = m.def_submodule("platform");
+     platform.doc() = "Platform-specific application and context creation";
+ 
+     #ifdef Magnum_GlfwApplication_FOUND
+-    py::module glfw = platform.def_submodule("glfw");
++    py::module_ glfw = platform.def_submodule("glfw");
+     magnum::platform::glfw(glfw);
+     #endif
+ 
+     #ifdef Magnum_Sdl2Application_FOUND
+-    py::module sdl2 = platform.def_submodule("sdl2");
++    py::module_ sdl2 = platform.def_submodule("sdl2");
+     magnum::platform::sdl2(sdl2);
+     #endif
+ 
+     #ifdef Magnum_WindowlessEglApplication_FOUND
+-    py::module egl = platform.def_submodule("egl");
++    py::module_ egl = platform.def_submodule("egl");
+     magnum::platform::egl(egl);
+     #endif
+ 
+     #ifdef Magnum_WindowlessGlxApplication_FOUND
+-    py::module glx = platform.def_submodule("glx");
++    py::module_ glx = platform.def_submodule("glx");
+     magnum::platform::glx(glx);
+     #endif
+     #endif
+diff --git a/src/python/magnum/math.cpp b/src/python/magnum/math.cpp
+index 6a19df1..d7934a6 100644
+--- a/src/python/magnum/math.cpp
++++ b/src/python/magnum/math.cpp
+@@ -236,7 +236,7 @@ template<class U, class T, class ...Args> void convertible(py::class_<T, Args...
+     c.def(py::init<U>(), "Construct from different underlying type");
+ }
+ 
+-template<class T> void quaternion(py::module& m, py::class_<T>& c) {
++template<class T> void quaternion(py::module_& m, py::class_<T>& c) {
+     /*
+         Missing APIs:
+ 
+@@ -410,7 +410,7 @@ PyTypeObject* transformationMatrixMetaclass() {
+ 
+ }
+ 
+-void math(py::module& root, py::module& m) {
++void math(py::module_& root, py::module_& m) {
+     m.doc() = "Math library";
+ 
+     /* Deg, Rad, Degd, Radd */
+diff --git a/src/python/magnum/math.matrixdouble.cpp b/src/python/magnum/math.matrixdouble.cpp
+index 495c749..5f0eb35 100644
+--- a/src/python/magnum/math.matrixdouble.cpp
++++ b/src/python/magnum/math.matrixdouble.cpp
+@@ -27,7 +27,7 @@
+ 
+ namespace magnum {
+ 
+-void mathMatrixDouble(py::module& root, PyTypeObject* const metaclass) {
++void mathMatrixDouble(py::module_& root, PyTypeObject* const metaclass) {
+     py::class_<Matrix2x2d> matrix2x2d{root, "Matrix2x2d", "2x2 double matrix", py::buffer_protocol{}};
+     py::class_<Matrix2x3d> matrix2x3d{root, "Matrix2x3d", "2x3 double matrix", py::buffer_protocol{}};
+     py::class_<Matrix2x4d> matrix2x4d{root, "Matrix2x4d", "2x4 double matrix", py::buffer_protocol{}};
+diff --git a/src/python/magnum/math.matrixfloat.cpp b/src/python/magnum/math.matrixfloat.cpp
+index 25bdd44..737293e 100644
+--- a/src/python/magnum/math.matrixfloat.cpp
++++ b/src/python/magnum/math.matrixfloat.cpp
+@@ -27,7 +27,7 @@
+ 
+ namespace magnum {
+ 
+-void mathMatrixFloat(py::module& root, PyTypeObject* const metaclass) {
++void mathMatrixFloat(py::module_& root, PyTypeObject* const metaclass) {
+     py::class_<Matrix2x2> matrix2x2{root, "Matrix2x2", "2x2 float matrix", py::buffer_protocol{}};
+     py::class_<Matrix2x3> matrix2x3{root, "Matrix2x3", "2x3 float matrix", py::buffer_protocol{}};
+     py::class_<Matrix2x4> matrix2x4{root, "Matrix2x4", "2x4 float matrix", py::buffer_protocol{}};
+diff --git a/src/python/magnum/math.range.cpp b/src/python/magnum/math.range.cpp
+index c323b05..64d4a76 100644
+--- a/src/python/magnum/math.range.cpp
++++ b/src/python/magnum/math.range.cpp
+@@ -35,7 +35,7 @@ namespace magnum {
+ 
+ namespace {
+ 
+-template<class T> void range(py::module& m, py::class_<T>& c) {
++template<class T> void range(py::module_& m, py::class_<T>& c) {
+     /*
+         Missing APIs:
+ 
+@@ -318,7 +318,7 @@ template<template<class> class Type, class T, class ...Args> void convertible(py
+ 
+ }
+ 
+-void mathRange(py::module& root, py::module& m) {
++void mathRange(py::module_& root, py::module_& m) {
+     py::class_<Range1D> range1D_{root, "Range1D", "One-dimensional float range"};
+     py::class_<Range2D> range2D_{root, "Range2D", "Two-dimensional float range"};
+     py::class_<Range3D> range3D_{root, "Range3D", "Three-dimensional float range"};
+diff --git a/src/python/magnum/math.vector.h b/src/python/magnum/math.vector.h
+index a85083d..b51431c 100644
+--- a/src/python/magnum/math.vector.h
++++ b/src/python/magnum/math.vector.h
+@@ -188,7 +188,7 @@ template<class T> bool vectorBufferProtocol(T& self, Py_buffer& buffer, int flag
+ }
+ 
+ /* Things common for vectors of all sizes and types */
+-template<class T> void vector(py::module& m, py::class_<T>& c) {
++template<class T> void vector(py::module_& m, py::class_<T>& c) {
+     /*
+         Missing APIs:
+ 
+diff --git a/src/python/magnum/math.vectorfloat.cpp b/src/python/magnum/math.vectorfloat.cpp
+index bbc25ec..97acdb0 100644
+--- a/src/python/magnum/math.vectorfloat.cpp
++++ b/src/python/magnum/math.vectorfloat.cpp
+@@ -29,7 +29,7 @@ namespace magnum {
+ 
+ namespace {
+ 
+-template<class T> void vectorFloat(py::module& m, py::class_<T>& c) {
++template<class T> void vectorFloat(py::module_& m, py::class_<T>& c) {
+     m
+         .def("angle", [](const T& a, const T& b) { return Radd(Math::angle(a, b)); },
+             "Angle between normalized vectors", py::arg("normalized_a"), py::arg("normalized_b"));
+@@ -52,7 +52,7 @@ template<class T> void vectorFloat(py::module& m, py::class_<T>& c) {
+         }, "Vector projected onto a normalized line");
+ }
+ 
+-template<class T> void vectorsFloat(py::module& m, py::class_<Math::Vector2<T>>& vector2_, py::class_<Math::Vector3<T>>& vector3_, py::class_<Math::Vector4<T>>& vector4_) {
++template<class T> void vectorsFloat(py::module_& m, py::class_<Math::Vector2<T>>& vector2_, py::class_<Math::Vector3<T>>& vector3_, py::class_<Math::Vector4<T>>& vector4_) {
+     vector2_.def("aspect_ratio", static_cast<T(Math::Vector2<T>::*)() const>(&Math::Vector2<T>::aspectRatio),
+         "Aspect ratio");
+     m.def("cross", static_cast<T(*)(const Math::Vector2<T>&, const Math::Vector2<T>&)>(Math::cross),
+@@ -81,7 +81,7 @@ template<class T> void vectorsFloat(py::module& m, py::class_<Math::Vector2<T>>&
+ 
+ }
+ 
+-void mathVectorFloat(py::module& root, py::module& m) {
++void mathVectorFloat(py::module_& root, py::module_& m) {
+     py::class_<Vector2> vector2{root, "Vector2", "Two-component float vector", py::buffer_protocol{}};
+     py::class_<Vector3> vector3{root, "Vector3", "Threee-component float vector", py::buffer_protocol{}};
+     py::class_<Vector4> vector4{root, "Vector4", "Four-component float vector", py::buffer_protocol{}};
+diff --git a/src/python/magnum/math.vectorintegral.cpp b/src/python/magnum/math.vectorintegral.cpp
+index c656d55..a8c15e7 100644
+--- a/src/python/magnum/math.vectorintegral.cpp
++++ b/src/python/magnum/math.vectorintegral.cpp
+@@ -81,7 +81,7 @@ template<class T> void vectorIntegral(py::class_<T>& c) {
+         .def(py::self / Float{}, "Divide an integral vector with a floating-point number");
+ }
+ 
+-template<class T> void vectorsIntegral(py::module& m, py::class_<Math::Vector2<T>>& vector2_, py::class_<Math::Vector3<T>>& vector3_, py::class_<Math::Vector4<T>>& vector4_) {
++template<class T> void vectorsIntegral(py::module_& m, py::class_<Math::Vector2<T>>& vector2_, py::class_<Math::Vector3<T>>& vector3_, py::class_<Math::Vector4<T>>& vector4_) {
+     everyVector(vector2_);
+     vector<Math::Vector2<T>>(m, vector2_);
+     vectorIntegral<Math::Vector2<T>>(vector2_);
+@@ -107,7 +107,7 @@ template<class T> void vectorsIntegralSigned(py::class_<Math::Vector2<T>>& vecto
+ 
+ }
+ 
+-void mathVectorIntegral(py::module& root, py::module& m) {
++void mathVectorIntegral(py::module_& root, py::module_& m) {
+     py::class_<Vector2i> vector2i{root, "Vector2i", "Two-component signed integer vector", py::buffer_protocol{}};
+     py::class_<Vector3i> vector3i{root, "Vector3i", "Threee-component signed integral vector", py::buffer_protocol{}};
+     py::class_<Vector4i> vector4i{root, "Vector4i", "Four-component signed integral vector", py::buffer_protocol{}};
+diff --git a/src/python/magnum/meshtools.cpp b/src/python/magnum/meshtools.cpp
+index b101348..d668be3 100644
+--- a/src/python/magnum/meshtools.cpp
++++ b/src/python/magnum/meshtools.cpp
+@@ -33,14 +33,14 @@
+ 
+ namespace magnum {
+ 
+-void meshtools(py::module& m) {
++void meshtools(py::module_& m) {
+     m.doc() = "Mesh tools";
+ 
+     #ifndef MAGNUM_BUILD_STATIC
+     /* These are a part of the same module in the static build, no need to
+        import (also can't import because there it's _magnum.*) */
+-    py::module::import("magnum.gl");
+-    py::module::import("magnum.trade");
++    py::module_::import("magnum.gl");
++    py::module_::import("magnum.trade");
+     #endif
+ 
+     py::enum_<MeshTools::CompileFlag> compileFlag{m, "CompileFlag", "Mesh compilation flags"};
+diff --git a/src/python/magnum/platform/egl.cpp b/src/python/magnum/platform/egl.cpp
+index 5aaed1c..84b25fa 100644
+--- a/src/python/magnum/platform/egl.cpp
++++ b/src/python/magnum/platform/egl.cpp
+@@ -35,7 +35,7 @@ namespace {
+     int argc = 0;
+ }
+ 
+-void egl(py::module& m) {
++void egl(py::module_& m) {
+     m.doc() = "EGL-based platform integration";
+ 
+     struct PyWindowlessApplication: Platform::WindowlessApplication {
+diff --git a/src/python/magnum/platform/glfw.cpp b/src/python/magnum/platform/glfw.cpp
+index 9d37795..150871c 100644
+--- a/src/python/magnum/platform/glfw.cpp
++++ b/src/python/magnum/platform/glfw.cpp
+@@ -37,7 +37,7 @@ namespace {
+     int argc = 0;
+ }
+ 
+-void glfw(py::module& m) {
++void glfw(py::module_& m) {
+     m.doc() = "GLFW-based platform integration";
+ 
+     struct PublicizedApplication: Platform::Application {
+diff --git a/src/python/magnum/platform/glx.cpp b/src/python/magnum/platform/glx.cpp
+index 4330249..8376aac 100644
+--- a/src/python/magnum/platform/glx.cpp
++++ b/src/python/magnum/platform/glx.cpp
+@@ -35,7 +35,7 @@ namespace {
+     int argc = 0;
+ }
+ 
+-void glx(py::module& m) {
++void glx(py::module_& m) {
+     m.doc() = "GLX-based platform integration";
+ 
+     struct PyWindowlessApplication: Platform::WindowlessApplication {
+diff --git a/src/python/magnum/platform/sdl2.cpp b/src/python/magnum/platform/sdl2.cpp
+index 1eeae00..be760ce 100644
+--- a/src/python/magnum/platform/sdl2.cpp
++++ b/src/python/magnum/platform/sdl2.cpp
+@@ -37,7 +37,7 @@ namespace {
+     int argc = 0;
+ }
+ 
+-void sdl2(py::module& m) {
++void sdl2(py::module_& m) {
+     m.doc() = "SDL2-based platform integration";
+ 
+     struct PublicizedApplication: Platform::Application {
+diff --git a/src/python/magnum/platform/wgl.cpp b/src/python/magnum/platform/wgl.cpp
+index d8b18b3..118e339 100644
+--- a/src/python/magnum/platform/wgl.cpp
++++ b/src/python/magnum/platform/wgl.cpp
+@@ -35,7 +35,7 @@ namespace {
+     int argc = 0;
+ }
+ 
+-void wgl(py::module& m) {
++void wgl(py::module_& m) {
+     m.doc() = "WGL-based platform integration";
+ 
+     struct PyWindowlessApplication: Platform::WindowlessApplication {
+diff --git a/src/python/magnum/primitives.cpp b/src/python/magnum/primitives.cpp
+index a63a862..a7473a7 100644
+--- a/src/python/magnum/primitives.cpp
++++ b/src/python/magnum/primitives.cpp
+@@ -46,13 +46,13 @@
+ 
+ namespace magnum {
+ 
+-void primitives(py::module& m) {
++void primitives(py::module_& m) {
+     m.doc() = "Primitive library";
+ 
+     #ifndef MAGNUM_BUILD_STATIC
+     /* These are a part of the same module in the static build, no need to
+        import (also can't import because there it's _magnum.*) */
+-    py::module::import("magnum.trade");
++    py::module_::import("magnum.trade");
+     #endif
+ 
+     py::enum_<Primitives::CapsuleFlag> capsuleFlags{m, "CapsuleFlags", "Capsule flags"};
+diff --git a/src/python/magnum/scenegraph.cpp b/src/python/magnum/scenegraph.cpp
+index 032e040..95b9f6f 100644
+--- a/src/python/magnum/scenegraph.cpp
++++ b/src/python/magnum/scenegraph.cpp
+@@ -129,7 +129,7 @@ template<UnsignedInt dimensions, class T> void camera(py::class_<SceneGraph::Cam
+ 
+ }
+ 
+-void scenegraph(py::module& m) {
++void scenegraph(py::module_& m) {
+     m.doc() = "Scene graph library";
+ 
+     /* Abstract objects. Returned from feature.object, so need to be registered
+diff --git a/src/python/magnum/scenegraph.h b/src/python/magnum/scenegraph.h
+index 91b4e11..ee68a11 100644
+--- a/src/python/magnum/scenegraph.h
++++ b/src/python/magnum/scenegraph.h
+@@ -159,8 +159,8 @@ template<class Transformation> void objectReflect(py::class_<SceneGraph::Object<
+         }, "Reflect the object as a local transformation");
+ }
+ 
+-void scenegraphMatrix(py::module& m);
+-void scenegraphTrs(py::module& m);
++void scenegraphMatrix(py::module_& m);
++void scenegraphTrs(py::module_& m);
+ 
+ }
+ 
+diff --git a/src/python/magnum/scenegraph.matrix.cpp b/src/python/magnum/scenegraph.matrix.cpp
+index fd87396..fb23737 100644
+--- a/src/python/magnum/scenegraph.matrix.cpp
++++ b/src/python/magnum/scenegraph.matrix.cpp
+@@ -30,8 +30,8 @@
+ 
+ namespace magnum {
+ 
+-void scenegraphMatrix(py::module& m) {
+-    py::module matrix = m.def_submodule("matrix");
++void scenegraphMatrix(py::module_& m) {
++    py::module_ matrix = m.def_submodule("matrix");
+     matrix.doc() = "General matrix-based scene graph implementation";
+ 
+     py::class_<SceneGraph::Scene<SceneGraph::MatrixTransformation2D>> scene2D_{matrix, "Scene2D", "Two-dimensional scene with matrix-based transformation implementation"};
+diff --git a/src/python/magnum/scenegraph.trs.cpp b/src/python/magnum/scenegraph.trs.cpp
+index 79dbb30..5db47b3 100644
+--- a/src/python/magnum/scenegraph.trs.cpp
++++ b/src/python/magnum/scenegraph.trs.cpp
+@@ -50,8 +50,8 @@ template<class Transformation> void objectTrs(py::class_<SceneGraph::Object<Tran
+ 
+ }
+ 
+-void scenegraphTrs(py::module& m) {
+-    py::module matrix = m.def_submodule("trs");
++void scenegraphTrs(py::module_& m) {
++    py::module_ matrix = m.def_submodule("trs");
+     matrix.doc() = "Translation/rotation/scaling-based scene graph implementation";
+ 
+     py::class_<SceneGraph::Scene<SceneGraph::TranslationRotationScalingTransformation2D>> scene2D_{matrix, "Scene2D", "Two-dimensional scene with TRS-based transformation implementation"};
+diff --git a/src/python/magnum/shaders.cpp b/src/python/magnum/shaders.cpp
+index 1e782b4..6ef9df2 100644
+--- a/src/python/magnum/shaders.cpp
++++ b/src/python/magnum/shaders.cpp
+@@ -105,13 +105,13 @@ template<UnsignedInt dimensions> void vertexColor(PyNonDestructibleClass<Shaders
+ 
+ }
+ 
+-void shaders(py::module& m) {
++void shaders(py::module_& m) {
+     m.doc() = "Builtin shaders";
+ 
+     #ifndef MAGNUM_BUILD_STATIC
+     /* These are a part of the same module in the static build, no need to
+        import (also can't import because there it's _magnum.*) */
+-    py::module::import("magnum.gl");
++    py::module_::import("magnum.gl");
+     #endif
+ 
+     /* 2D/3D flat shader */
+diff --git a/src/python/magnum/trade.cpp b/src/python/magnum/trade.cpp
+index b29e84a..39df89f 100644
+--- a/src/python/magnum/trade.cpp
++++ b/src/python/magnum/trade.cpp
+@@ -219,11 +219,11 @@ template<class R, Containers::Optional<R>(Trade::AbstractImporter::*f)(UnsignedI
+ 
+ }
+ 
+-void trade(py::module& m) {
++void trade(py::module_& m) {
+     m.doc() = "Data format exchange";
+ 
+     /* AbstractImporter depends on this */
+-    py::module::import("corrade.pluginmanager");
++    py::module_::import("corrade.pluginmanager");
+ 
+     py::class_<Trade::MeshData>{m, "MeshData", "Mesh data"}
+         .def_property_readonly("primitive", &Trade::MeshData::primitive, "Primitive")

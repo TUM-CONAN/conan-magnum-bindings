@@ -32,7 +32,7 @@ class LibnameConan(ConanFile):
     author = "ulrich eck (forked on github)"
     license = "MIT"  # Indicates license type of the packaged library; please use SPDX Identifiers https://spdx.org/licenses/
     exports = ["LICENSE.md"]
-    exports_sources = ["CMakeLists.txt"]
+    exports_sources = ["CMakeLists.txt", "patches/*"]
     generators = "cmake"
     short_paths = True  # Some folders go out of the 260 chars path length scope (windows)
 
@@ -111,7 +111,7 @@ class LibnameConan(ConanFile):
 
     def requirements(self):
         if self.options.with_python:
-            self.requires("pybind11/[2.5.0]@camposs/stable")
+            self.requires("pybind11/[2.7.1]@camposs/stable")
 
 
     def source(self):
@@ -163,6 +163,12 @@ class LibnameConan(ConanFile):
         return cmake
 
     def build(self):
+
+        source_dir = os.path.join(
+            self.source_folder, self._source_subfolder)
+        tools.patch(source_dir, "patches/patch_pybind2.6_commit1.diff")
+        tools.patch(source_dir, "patches/patch_pybind2.6_commit2.diff")
+
         cmake = self._configure_cmake()
         cmake.build()
 
