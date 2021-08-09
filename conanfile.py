@@ -100,6 +100,8 @@ class LibnameConan(ConanFile):
 
         # if self.options.with_assimpimporter:
         #     self.options['magnum'].add_option('with_anyimageimporter', True)
+        if self.options.with_python:
+            self.options['magnum'].add_option('with_windowlesseglapplication', True)
 
 
     def requirements(self):
@@ -157,7 +159,7 @@ class LibnameConan(ConanFile):
 
             if not python:
                 python = self.options["python_dev_config"].python
-                python_version = ""
+                python_version = "3"
 
             self.output.info("python executable: %s (%s)" % (python, python_version))
             cmake.definitions['PYTHON_EXECUTABLE'] = python
