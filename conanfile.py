@@ -85,8 +85,7 @@ class LibnameConan(ConanFile):
         pass
 
     def build_requirements(self):
-        self.build_requires("generators/1.0.0@camposs/stable")
-    
+        pass
 
     def config_options(self):
         if self.settings.os == 'Windows':
@@ -104,6 +103,7 @@ class LibnameConan(ConanFile):
 
 
     def requirements(self):
+        self.requires("generators/1.0.0@camposs/stable")
         if self.options.with_python:
             self.requires("python_dev_config/[>=0.6]@camposs/stable")
             self.requires("pybind11/[2.7.1]@camposs/stable")
@@ -143,13 +143,28 @@ class LibnameConan(ConanFile):
         # add_cmake_option("IMGUI_DIR", os.path.join(self.deps_cpp_info["imgui"].rootpath, 'include'))
 
         if self.options.with_python:
-            
-            self.output.info("python executable: %s (%s)" % (os.environ.get("PYTHON"),
-                                                             os.environ.get("PYTHON_VERSION")))
-            cmake.definitions['PYTHON_EXECUTABLE'] = os.environ.get("PYTHON")
-            cmake.definitions['PYTHON_VERSION_STRING'] = os.environ.get("PYTHON_VERSION")
+
+            # some sensible defaults            
+            python = None
+            python_version = None
+            if "PYTHON" in os.environ:
+                python = os.environ.get("PYTHON")
+                python_version = os.environ.get("PYTHON_VERSION")
+   
+            if python is None:
+                python = self.deps_env_info["python_dev_config"].PYTHON
+                python_version = self.deps_env_info["python_dev_config"].PYTHON_VERSION
+
+            if not python:
+                python = self.options["python_dev_config"].python
+                python_version = ""
+
+            self.output.info("python executable: %s (%s)" % (python, python_version))
+            cmake.definitions['PYTHON_EXECUTABLE'] = python
+            cmake.definitions['PYTHON_VERSION_STRING'] = python_version
             if self.settings.os == "Macos":
                 cmake.definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
+
         cmake.configure(build_folder=self._build_subfolder)
 
         return cmake
@@ -166,6 +181,7 @@ class LibnameConan(ConanFile):
 
     def package(self):
         self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
+
         cmake = self._configure_cmake()
         cmake.install()
         if self.options.with_python:
