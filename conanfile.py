@@ -159,6 +159,7 @@ class LibnameConan(ConanFile):
 
             if not python:
                 python = self.options["python_dev_config"].python
+                python = tools.which(python)
                 python_version = "3"
 
             self.output.info("python executable: %s (%s)" % (python, python_version))

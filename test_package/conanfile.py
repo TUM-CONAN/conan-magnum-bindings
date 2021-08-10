@@ -11,6 +11,7 @@ class MagnumTestConan(ConanFile):
       python = None
       if "PYTHON" in os.environ:
           python = os.environ.get("PYTHON")
+          python = tools.which(python)
 
       if python is None:
           python = self.deps_env_info["python_dev_config"].PYTHON
