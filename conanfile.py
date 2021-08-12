@@ -188,9 +188,11 @@ class LibnameConan(ConanFile):
         cmake = self._configure_cmake()
         cmake.install()
         if self.options.with_python:
+            # with tools.chdir(os.path.join(self._build_subfolder, self._source_subfolder, 'src', 'python')):
+            #     self.run("{0} setup.py install".format(os.environ.get("PYTHON")))
             self.copy('*.py*', dst=os.path.join('lib', 'python'), src=os.path.join(self._source_subfolder, 'src', 'python'), keep_path=True)
-            self.copy('*.so', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'))
-            self.copy('*.pyd', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'))
+            self.copy('*.so', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'), keep_path=True)
+            self.copy('*.pyd', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'), keep_path=True)
 
     def package_info(self):
         if self.options.with_python:
