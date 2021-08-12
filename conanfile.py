@@ -3,6 +3,7 @@
 
 from conans import ConanFile, CMake, tools
 import os
+import glob
 
 def sort_libs(correct_order, libs, lib_suffix='', reverse_result=False):
     # Add suffix for correct string matching
@@ -44,7 +45,7 @@ class LibnameConan(ConanFile):
         "with_python": [True, False],
     }
     default_options = {
-        "shared": False, 
+        "shared": True, 
         "fPIC": True,
         "with_python": True,
         "magnum:with_sdl2application": True,
@@ -124,6 +125,27 @@ class LibnameConan(ConanFile):
                 "list(APPEND magnum_LIBS Magnum::GlfwApplication)",
                 """list(APPEND magnum_LIBS Magnum::GlfwApplication "-framework Cocoa -framework OpenGL")""")
 
+    def _python_config(self):
+        if self.options.with_python:
+            # some sensible defaults            
+            python = None
+            python_version = None
+            if "PYTHON" in os.environ:
+                python = os.environ.get("PYTHON")
+                python_version = os.environ.get("PYTHON_VERSION")
+   
+            if python is None:
+                python = self.deps_env_info["python_dev_config"].PYTHON
+                python_version = self.deps_env_info["python_dev_config"].PYTHON_VERSION
+
+            if not python:
+                python = self.options["python_dev_config"].python
+                python = tools.which(python)
+                python_version = "3"
+            return python, python_version
+        return None, None       
+
+
     def _configure_cmake(self):
         cmake = CMake(self)
 
@@ -144,24 +166,9 @@ class LibnameConan(ConanFile):
         add_cmake_option("BUILD_STATIC_PIC", not self.options.shared and self.options.get_safe("fPIC"))
         # add_cmake_option("IMGUI_DIR", os.path.join(self.deps_cpp_info["imgui"].rootpath, 'include'))
 
+
         if self.options.with_python:
-
-            # some sensible defaults            
-            python = None
-            python_version = None
-            if "PYTHON" in os.environ:
-                python = os.environ.get("PYTHON")
-                python_version = os.environ.get("PYTHON_VERSION")
-   
-            if python is None:
-                python = self.deps_env_info["python_dev_config"].PYTHON
-                python_version = self.deps_env_info["python_dev_config"].PYTHON_VERSION
-
-            if not python:
-                python = self.options["python_dev_config"].python
-                python = tools.which(python)
-                python_version = "3"
-
+            python, python_version = self._python_config()
             self.output.info("python executable: %s (%s)" % (python, python_version))
             cmake.definitions['PYTHON_EXECUTABLE'] = python
             cmake.definitions['PYTHON_VERSION_STRING'] = python_version
@@ -174,6 +181,10 @@ class LibnameConan(ConanFile):
 
     def build(self):
 
+        # if self.options.with_python:
+        #     tools.replace_in_file(os.path.join(self._source_subfolder, 'src', 'python', 'setup.py.cmake'),
+        #         "zip_safe=True", "zip_safe=False")
+
         source_dir = os.path.join(
             self.source_folder, self._source_subfolder)
         tools.patch(source_dir, "patches/patch_pybind2.6_commit1.diff")
@@ -182,18 +193,32 @@ class LibnameConan(ConanFile):
         cmake = self._configure_cmake()
         cmake.build()
 
+    def imports(self):
+        self.copy(pattern="*.dll", dst="bin", src="bin") # From bin to bin
+        self.copy(pattern="*.dylib*", dst="lib", src="lib") 
+        self.copy(pattern="*.so*", dst="lib", src="lib") 
+
     def package(self):
         self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
 
         cmake = self._configure_cmake()
         cmake.install()
         if self.options.with_python:
-            # with tools.chdir(os.path.join(self._build_subfolder, self._source_subfolder, 'src', 'python')):
-            #     self.run("{0} setup.py install".format(os.environ.get("PYTHON")))
-            self.copy('*.py*', dst=os.path.join('lib', 'python'), src=os.path.join(self._source_subfolder, 'src', 'python'), keep_path=True)
-            self.copy('*.so', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'), keep_path=True)
-            self.copy('*.pyd', dst=os.path.join('lib', 'python'), src=os.path.join(self._build_subfolder, 'lib'), keep_path=True)
+            python, python_version = self._python_config()
+            with tools.chdir(os.path.join(self._build_subfolder, self._source_subfolder, 'src', 'python')):
+                self.run("{0} setup.py install --prefix=\"{1}\"".format(python, self.package_folder))
+
+            pypath = glob.glob(os.path.join(self.package_folder, 'lib', 'python*'))[0]
+            output_path = os.path.join(pypath, 'site-packages')
+            with tools.chdir(output_path):
+                egg_files = glob.glob("*.egg")
+                for egg in egg_files:
+                    tools.unzip(egg)
+                    os.unlink(egg)
 
     def package_info(self):
         if self.options.with_python:
-            self.env_info.PYTHONPATH.append(os.path.join(self.package_folder,'lib', 'python'))
+            python, python_version = self._python_config()
+            path = os.path.join(glob.glob(os.path.join(self.package_folder, 'lib', 'python*'))[0], 'site-packages')
+            self.output.info("Append to PYTHONPATH: {0}".format(path))
+            self.env_info.PYTHONPATH.append(path)
