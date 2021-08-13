@@ -45,10 +45,11 @@ class LibnameConan(ConanFile):
         "with_python": [True, False],
     }
     default_options = {
-        "shared": True, 
+        "shared": False, 
         "fPIC": True,
         "with_python": True,
         "magnum:with_sdl2application": True,
+        "magnum:build_plugins_static": False,
     }
 
     # Custom attributes for Bincrafters recipe conventions
@@ -193,10 +194,10 @@ class LibnameConan(ConanFile):
         cmake = self._configure_cmake()
         cmake.build()
 
-    def imports(self):
-        self.copy(pattern="*.dll", dst="bin", src="bin") # From bin to bin
-        self.copy(pattern="*.dylib*", dst="lib", src="lib") 
-        self.copy(pattern="*.so*", dst="lib", src="lib") 
+    # def imports(self):
+    #     self.copy(pattern="*.dll", dst="bin", src="bin") # From bin to bin
+    #     self.copy(pattern="*.dylib*", dst="lib", src="lib") 
+    #     self.copy(pattern="*.so*", dst="lib", src="lib") 
 
     def package(self):
         self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
@@ -208,6 +209,7 @@ class LibnameConan(ConanFile):
             with tools.chdir(os.path.join(self._build_subfolder, self._source_subfolder, 'src', 'python')):
                 self.run("{0} setup.py install --prefix=\"{1}\"".format(python, self.package_folder))
 
+            # somehow needed to enable importing the module ...
             pypath = glob.glob(os.path.join(self.package_folder, 'lib', 'python*'))[0]
             output_path = os.path.join(pypath, 'site-packages')
             with tools.chdir(output_path):
