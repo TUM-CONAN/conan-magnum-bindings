@@ -109,7 +109,7 @@ class LibnameConan(ConanFile):
     def requirements(self):
         self.requires("generators/1.0.0@camposs/stable")
         if self.options.with_python:
-            self.requires("python_dev_config/[>=0.6]@camposs/stable")
+            self.requires("python_dev_config/[>=1.0]@camposs/stable")
             self.requires("pybind11/[2.7.1]@camposs/stable")
 
 
@@ -135,7 +135,7 @@ class LibnameConan(ConanFile):
                 python = os.environ.get("PYTHON")
                 python_version = os.environ.get("PYTHON_VERSION")
    
-            if python is None:
+            if not python:
                 python = self.deps_env_info["python_dev_config"].PYTHON
                 python_version = self.deps_env_info["python_dev_config"].PYTHON_VERSION
 
