@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from conans import ConanFile, CMake, tools
+from conan import ConanFile
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout, CMakeDeps
+from conan.tools.scm import Git
+from conan.tools.files import load, update_conandata, copy, collect_libs, get, replace_in_file, patch, chdir, unzip
+from conan.tools.microsoft.visual import check_min_vs
+from conan.tools.system.package_manager import Apt
 import os
 import glob
 
@@ -24,18 +29,16 @@ def sort_libs(correct_order, libs, lib_suffix='', reverse_result=False):
 class LibnameConan(ConanFile):
     name = "magnum-bindings"
     version = "2020.06"
-    description =   "magnum-bindings — Lightweight and modular C++11/C++14 \
+    description = "magnum-bindings — Lightweight and modular C++11/C++14 \
                     graphics middleware for games and data visualization"
     # topics can get used for searches, GitHub topics, Bintray tags etc. Add here keywords about the library
     topics = ("conan", "corrade", "graphics", "rendering", "3d", "2d", "opengl")
-    url = "https://github.com/ulricheck/conan-magnum-bindings"
+    url = "https://github.com/TUM-CONAN/conan-magnum-bindings"
     homepage = "https://magnum.graphics"
     author = "ulrich eck (forked on github)"
-    license = "MIT"  # Indicates license type of the packaged library; please use SPDX Identifiers https://spdx.org/licenses/
+    license = "MIT"
     exports = ["LICENSE.md"]
     exports_sources = ["CMakeLists.txt", "patches/*"]
-    generators = "cmake"
-    short_paths = True  # Some folders go out of the 260 chars path length scope (windows)
 
     # Options may need to change depending on the packaged library.
     settings = "os", "arch", "compiler", "build_type"
@@ -48,46 +51,10 @@ class LibnameConan(ConanFile):
         "shared": False, 
         "fPIC": True,
         "with_python": True,
-        "magnum:with_sdl2application": True,
-        "magnum:build_plugins_static": False,
+        "magnum/*:with_sdl2application": True,
+        "magnum/*:build_plugins_static": False,
+        "cpython/*:env_vars": True,
     }
-
-    # Custom attributes for Bincrafters recipe conventions
-    _source_subfolder = "source_subfolder"
-    _build_subfolder = "build_subfolder"
-
-    # we could make this more modular byu adding options ..
-    requires = (
-        "magnum/2020.06@camposs/stable",
-        "nodejs_installer/[>=10.15.0]@bincrafters/stable",
-    )
-
-    def system_package_architecture(self):
-        if tools.os_info.with_apt:
-            if self.settings.arch == "x86":
-                return ':i386'
-            elif self.settings.arch == "x86_64":
-                return ':amd64'
-            elif self.settings.arch == "armv6" or self.settings.arch == "armv7":
-                return ':armel'
-            elif self.settings.arch == "armv7hf":
-                return ':armhf'
-            elif self.settings.arch == "armv8":
-                return ':arm64'
-
-        if tools.os_info.with_yum:
-            if self.settings.arch == "x86":
-                return '.i686'
-            elif self.settings.arch == 'x86_64':
-                return '.x86_64'
-        return ""
-
-    def system_requirements(self):
-        # Install required dependent packages stuff on linux
-        pass
-
-    def build_requirements(self):
-        pass
 
     def config_options(self):
         if self.settings.os == 'Windows':
@@ -98,129 +65,132 @@ class LibnameConan(ConanFile):
         # To fix issue with resource management, see here:
         # https://github.com/mosra/magnum/issues/304#issuecomment-451768389
         if self.options.shared:
-            self.options['magnum'].add_option('shared', True)
+            self.options['magnum']['shared'] = True
 
         # if self.options.with_assimpimporter:
         #     self.options['magnum'].add_option('with_anyimageimporter', True)
         if self.options.with_python:
-            self.options['magnum'].add_option('with_windowlesseglapplication', True)
-
+            self.options['magnum']['with_windowlesseglapplication'] = True
 
     def requirements(self):
-        self.requires("generators/1.0.0@camposs/stable")
-        if self.options.with_python:
-            self.requires("python_dev_config/[>=1.0]@camposs/stable")
-            self.requires("pybind11/[2.7.1]@camposs/stable")
+        self.requires("magnum/2020.06@camposs/stable")
 
+        if self.options.with_python:
+            self.requires("cpython/3.10.0")
+            self.requires("pybind11/2.10.1")
+
+    def export(self):
+        update_conandata(self, {"sources": {
+            "commit": "v{}".format(self.version),
+            "url": "https://github.com/mosra/magnum-bindings.git"
+            }}
+            )
 
     def source(self):
-        source_url = "https://github.com/mosra/magnum-bindings"
-        tools.get("{0}/archive/v{1}.tar.gz".format(source_url, self.version))
-        extracted_dir = self.name + "-" + self.version
+        git = Git(self)
+        sources = self.conan_data["sources"]
+        git.clone(url=sources["url"], target=self.source_folder)
+        git.checkout(commit=sources["commit"])
+        replace_in_file(self, os.path.join(self.source_folder, "CMakeLists.txt"),
+            "find_package(Magnum REQUIRED)",
+            "cmake_policy(SET CMP0074 NEW)\nfind_package(Magnum REQUIRED)")
 
-        # Rename to "source_subfolder" is a convention to simplify later steps
-        os.rename(extracted_dir, self._source_subfolder)
+        # if self.settings.os == "Macos":
+        #     tools.replace_in_file(os.path.join(self._source_subfolder, "src", "python", "magnum", "CMakeLists.txt"),
+        #         "list(APPEND magnum_LIBS Magnum::GlfwApplication)",
+        #         """list(APPEND magnum_LIBS Magnum::GlfwApplication "-framework Cocoa -framework OpenGL")""")
 
-        if self.settings.os == "Macos":
-            tools.replace_in_file(os.path.join(self._source_subfolder, "src", "python", "magnum", "CMakeLists.txt"),
-                "list(APPEND magnum_LIBS Magnum::GlfwApplication)",
-                """list(APPEND magnum_LIBS Magnum::GlfwApplication "-framework Cocoa -framework OpenGL")""")
-
-    def _python_config(self):
-        if self.options.with_python:
-            # some sensible defaults            
-            python = None
-            python_version = None
-            if "PYTHON" in os.environ:
-                python = os.environ.get("PYTHON")
-                python_version = os.environ.get("PYTHON_VERSION")
-   
-            if not python:
-                python = self.deps_env_info["python_dev_config"].PYTHON
-                python_version = self.deps_env_info["python_dev_config"].PYTHON_VERSION
-
-            if not python:
-                python = self.options["python_dev_config"].python
-                python = tools.which(python)
-                python_version = "3"
-            return python, python_version
-        return None, None       
-
-
-    def _configure_cmake(self):
-        cmake = CMake(self)
+    def generate(self):
+        tc = CMakeToolchain(self)
 
         def add_cmake_option(option, value):
             var_name = "{}".format(option).upper()
             value_str = "{}".format(value)
-            var_value = "ON" if value_str == 'True' else "OFF" if value_str == 'False' else value_str 
-            cmake.definitions[var_name] = var_value
+            var_value = "ON" if value_str == 'True' else "OFF" if value_str == 'False' else value_str
+            tc.variables[var_name] = var_value
 
         for option, value in self.options.items():
             add_cmake_option(option, value)
 
-        # Magnum uses suffix on the resulting 'lib'-folder when running cmake.install()
-        # Set it explicitly to empty, else Magnum might set it implicitly (eg. to "64")
+        # Corrade uses suffix on the resulting 'lib'-folder when running cmake.install()
+        # Set it explicitly to empty, else Corrade might set it implicitly (eg. to "64")
         add_cmake_option("LIB_SUFFIX", "")
 
         add_cmake_option("BUILD_STATIC", not self.options.shared)
         add_cmake_option("BUILD_STATIC_PIC", not self.options.shared and self.options.get_safe("fPIC"))
-        # add_cmake_option("IMGUI_DIR", os.path.join(self.deps_cpp_info["imgui"].rootpath, 'include'))
-
+        corrade_root = self.dependencies["corrade"].package_folder
+        tc.variables["Corrade_ROOT"] = corrade_root
+        magnum_root = self.dependencies["magnum"].package_folder
+        tc.variables["Magnum_ROOT"] = magnum_root
 
         if self.options.with_python:
-            python, python_version = self._python_config()
+            python_version = self.dependencies["cpython"].ref.version
+            python = self.dependencies["cpython"].env_vars.PYTHON
             self.output.info("python executable: %s (%s)" % (python, python_version))
-            cmake.definitions['PYTHON_EXECUTABLE'] = python
-            cmake.definitions['PYTHON_VERSION_STRING'] = python_version
+            tc.preprocessor_definitions['PYTHON_EXECUTABLE'] = python
+            tc.preprocessor_definitions['PYTHON_VERSION_STRING'] = python_version
             if self.settings.os == "Macos":
-                cmake.definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
+                tc.preprocessor_definitions['CMAKE_FIND_FRAMEWORK'] = "LAST"
 
-        cmake.configure(build_folder=self._build_subfolder)
+        tc.generate()
 
-        return cmake
+        deps = CMakeDeps(self)
+        deps.set_property("magnum", "cmake_find_mode", "none")
+        deps.set_property("corrade", "cmake_find_mode", "none")
+        deps.generate()
+
+    def layout(self):
+        cmake_layout(self, src_folder="source_subfolder")
 
     def build(self):
-
-        # if self.options.with_python:
-        #     tools.replace_in_file(os.path.join(self._source_subfolder, 'src', 'python', 'setup.py.cmake'),
-        #         "zip_safe=True", "zip_safe=False")
-
-        source_dir = os.path.join(
-            self.source_folder, self._source_subfolder)
-        tools.patch(source_dir, "patches/patch_pybind2.6_commit1.diff")
-        tools.patch(source_dir, "patches/patch_pybind2.6_commit2.diff")
-
-        cmake = self._configure_cmake()
+        cmake = CMake(self)
+        cmake.configure()
         cmake.build()
 
-    # def imports(self):
-    #     self.copy(pattern="*.dll", dst="bin", src="bin") # From bin to bin
-    #     self.copy(pattern="*.dylib*", dst="lib", src="lib") 
-    #     self.copy(pattern="*.so*", dst="lib", src="lib") 
-
     def package(self):
-        self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
-
-        cmake = self._configure_cmake()
+        copy(self, pattern="LICENSE", dst="licenses", src=self.source_folder)
+        cmake = CMake(self)
         cmake.install()
+
         if self.options.with_python:
-            python, python_version = self._python_config()
-            with tools.chdir(os.path.join(self._build_subfolder, self._source_subfolder, 'src', 'python')):
+            python_version = self.dependencies["cpython"].ref.version
+            python = self.dependencies["cpython"].env_vars.PYTHON
+            with chdir(self, os.path.join(self.build_folder, self.source_folder, 'src', 'python')):
                 self.run("{0} setup.py install --prefix=\"{1}\"".format(python, self.package_folder))
 
             # somehow needed to enable importing the module ...
             pypath = glob.glob(os.path.join(self.package_folder, 'lib', 'python*'))[0]
             output_path = os.path.join(pypath, 'site-packages')
-            with tools.chdir(output_path):
+            with chdir(self, output_path):
                 egg_files = glob.glob("*.egg")
                 for egg in egg_files:
-                    tools.unzip(egg)
+                    unzip(self, egg)
                     os.unlink(egg)
+
+    # def build(self):
+    #
+    #     # if self.options.with_python:
+    #     #     tools.replace_in_file(os.path.join(self._source_subfolder, 'src', 'python', 'setup.py.cmake'),
+    #     #         "zip_safe=True", "zip_safe=False")
+    #
+    #     source_dir = os.path.join(
+    #         self.source_folder, self._source_subfolder)
+    #     tools.patch(source_dir, "patches/patch_pybind2.6_commit1.diff")
+    #     tools.patch(source_dir, "patches/patch_pybind2.6_commit2.diff")
+    #
+    #     cmake = self._configure_cmake()
+    #     cmake.build()
+
+    # def package(self):
+    #     self.copy(pattern="LICENSE", dst="licenses", src=self._source_subfolder)
+    #
+    #     cmake = self._configure_cmake()
+    #     cmake.install()
 
     def package_info(self):
         if self.options.with_python:
-            python, python_version = self._python_config()
+            python_version = self.dependencies["cpython"].ref.version
+            python = self.dependencies["cpython"].env_vars.PYTHON
             path = os.path.join(glob.glob(os.path.join(self.package_folder, 'lib', 'python*'))[0], 'site-packages')
             self.output.info("Append to PYTHONPATH: {0}".format(path))
             self.env_info.PYTHONPATH.append(path)
